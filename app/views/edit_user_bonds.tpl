@@ -50,11 +50,11 @@
                                                 </div> *}
 
                                                                    
-                                            <form method="post" action="{$conf->action_url}edit_user_bonds">
+                                            <form method="post" action="{$conf->action_url}make_edition">
                                                 <div class="row gtr-50">
                                                     
                                                     <div class="col-6 col-12-small">
-                                                        <input type="text" name="value" id="value" placeholder={$edited_bond['value']} />
+                                                        <input type="text" name="value" id="value" value={$edited_bond['value']} /> {*placeholder={$edited_bond['value']}*}
                                                     </div>
                                                     
                                                     <div class="col-6 col-12-small">
@@ -71,6 +71,7 @@
                                                     <div class="col-6 col-12-small">
                                                         <label for="purchase_date">Data zakupu</label>
                                                         <input type="date" name="purchase_date" id="purchase_date" value={$edited_bond['purchase_date']}/>
+                                                        <input type="hidden" name="id_holding" value={$edited_bond['id_holding']}>
                                                     </div>
 
                                                     <div class="col-12">
@@ -80,6 +81,15 @@
                                                     </div>
                                                 </div>
                                             </form>
+
+                                        <form method="post" action="{$conf->action_url}make_deletion">
+                                        <div class="col-12">
+                                            <ul class="actions">
+                                                <li><input type="submit" class="style1" value="Usun obligacje" /></li>
+                                                 <input type="hidden" name="id_holding" value={$edited_bond['id_holding']}>
+                                            </ul>
+                                        </div>
+                                        </form>
 								
                                             
 									</section>

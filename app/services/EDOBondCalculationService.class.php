@@ -11,34 +11,30 @@ use core\RoleUtils;
 use core\Validator;
 use app\forms\BondForm;
 use core\SessionUtils;
-use app\models\COIObject;
+use app\models\EDOObject;
+
+   # TODO proceed with calculations of other bond types EDO and ROR DOR
+class EDOBondCalculationService extends BondWrapper {
+      public $EDO_bond_user_data;
+      public $EDO_array;
 
 
-class COIBondCalculationService extends BondWrapper {
-    
-    public $COI_bond_user_data;
-    public $COI_array;
-    public $COI_count;
-
-    public function __construct() {
+      public function __construct() {
         $this->logged_user = SessionUtils::loadObject('logged_user', $keep = true);
-        $this->COI_array = array();
+        $this->EDO_array = array();
         $this->grouped_bonds = [];
     }
 
-
-    public function __invoke() {
-        $this->check_total_records();
-        $this->retrieve_COI_bonds();
-        $this->calculate_interest_COI();
+      public function __invoke() {
+        $this->retrieve_EDO_bonds();
+        $this->calculate_interest_EDO();
         return $this;
     }
 
-
-    public function retrieve_COI_bonds() {
+      public function retrieve_EDO_bonds() {
     
         try {
-            $this->COI_bond_user_data = App::getDB()->select("holding" , [
+            $this->EDO_bond_user_data = App::getDB()->select("holding" , [
                    "[>]bond"                    => ["bond_id_bond"                                                   => "id_bond"], 
                    "[>]inflation_index_bond"    => ["bond.id_bond"                                                   => "bond_id_bond"],
                    "[>]inflation_reading"       => ["inflation_index_bond.inflation_reading_id_inflation_reading"    => "id_inflation_reading"]
@@ -55,7 +51,7 @@ class COIBondCalculationService extends BondWrapper {
                     "inflation_reading.reading_value"
                    ], [
                     "holding.user_id_user"  => $this->logged_user->user_id,
-                    "bond.bond_type"        => "COI"
+                    "bond.bond_type"        => "EDO"
                    ]
              
         );
@@ -67,34 +63,15 @@ class COIBondCalculationService extends BondWrapper {
     }
 
 
-    public function check_total_records() {
-        try {
-            $this->COI_count = App::getDB()->count("holding" , [
-                   "[>]bond"                    => ["bond_id_bond"                                                   => "id_bond"], 
-                   "[>]inflation_index_bond"    => ["bond.id_bond"                                                   => "bond_id_bond"],
-                   ], [
-                    "holding.id_holding"
-                   ], [
-                    "holding.user_id_user"  => $this->logged_user->user_id,
-                    "bond.bond_type"        => "COI",
-                   ]    
-        );
-        } catch (PDOException $e) {
-            Utils::addErrorMessage('Wystąpił błąd podczas pobierania rekordów');
-            if (App::getConf()->debug)
-                Utils::addErrorMessage($e->getMessage());
-        }
-    }
-
-    public function group_by_id() {
-        foreach ($this->COI_bond_user_data as $COIbond) {
-            $bond_id = $COIbond['id_bond'];
-            $this->grouped_bonds[$bond_id][] = $COIbond;
+   public function group_by_id() {
+        foreach ($this->EDO_bond_user_data as $EDObond) {
+            $bond_id = $EDObond['id_bond'];
+            $this->grouped_bonds[$bond_id][] = $EDObond;
         }
     }
 
 
-    public function calculate_percentage_rate(&$current_bond) {
+   public function calculate_percentage_rate(&$current_bond) {
         $i = 0;
         foreach ($this->readings_array as $reading) {
             if ($i == 0) {
@@ -107,26 +84,34 @@ class COIBondCalculationService extends BondWrapper {
             }   
     }
 
- 
-    public function calculate_interest_COI() {
+    # TODO correct calulation of net interest
+   public function calculate_interest_EDO() {
         $this->group_by_id();
         $today = new \DateTime('now');
+        $today->setTime(0, 0, 0);
         foreach ($this->grouped_bonds as $bond_id => $this->readings_array) {
             #TODO add nested loop as for TOS to account for multiple holdings with same bond_id
-            $current_bond = new COIObject;
+            $current_bond = new EDOObject;
             $current_bond->purchase_date = new  \DateTime($this->readings_array[0]['purchase_date']);
-            $current_end_of_period = clone $current_bond->purchase_date;
             $current_bond->id_holding = $this->readings_array[0]['id_holding'];
+            $current_end_of_period = clone $current_bond->purchase_date;
             $current_bond->value = $this->readings_array[0]['value'];
             $current_bond->bond_type = $this->readings_array[0]['bond_type'];
             $this->calculate_percentage_rate($current_bond);
-            for ($i = 0; $i < 4; $i++) {
-                if ($current_bond->calculated_percentage_rate[$i] != 0) {
+            for ($i = 0; $i < $current_bond->periods; $i++) {
+               //  $current_bond->calculated_percentage_rate[$i] = $this->percentage_to_float($this->readings_array[0]["period_fixed_rate"]);
+               //  $current_bond->gross_percentage_returns[$i] = $this->readings_array[0]["period_fixed_rate"];
+                if ($i == 0) {
                     $current_bond->gross_interests[$i] = ($current_bond->value * $current_bond->calculated_percentage_rate[$i]) - $current_bond->value;
+                    $current_bond->gross_accumulated_interest[$i] = $current_bond->gross_interests[$i];
+                } else {
+                   $current_bond->gross_accumulated_interest[$i] = $current_bond->gross_interests[$i] + $current_bond->gross_accumulated_interest[$i-1];
+                  $current_bond->gross_interests[$i] = (($current_bond->gross_accumulated_interest[$i-1] + $current_bond->value) * $current_bond->calculated_percentage_rate[$i]) - $current_bond->value - $current_bond->gross_accumulated_interest[$i-1];
                 } 
+
                 $current_bond->net_interests[$i] = round($current_bond->gross_interests[$i] * 0.81, 2); # possibly change it to have it dunamically assigned form DB, if polish tax rate will change in the future
                 $current_bond->net_daily_period_interest[$i] =  round($current_bond->net_interests[$i] / 365, 4);
-                
+
                 $current_end_of_period->modify('+1 year');
                 if ($today <= $current_bond->purchase_date) {
                     $current_bond->net_current_returns[$i] = round(0,4);
@@ -136,34 +121,32 @@ class COIBondCalculationService extends BondWrapper {
                     } else {
                         $begginig_of_current_period = clone $current_end_of_period;
                         $begginig_of_current_period->modify('-1 year');
-                        $year_days = $begginig_of_current_period->diff($current_end_of_period)->days;
-                        $passed_days = $begginig_of_current_period->diff($today)->days;
-                        $current_bond->net_current_returns[$i] = round($current_bond->net_interests[$i] * ($passed_days/$year_days), 2);
+                        if ($today >= $begginig_of_current_period) {
+                            $year_days = $begginig_of_current_period->diff($current_end_of_period)->days;
+                            $passed_days = $begginig_of_current_period->diff($today)->days;
+                            $current_bond->net_current_returns[$i] = round($current_bond->net_interests[$i] * ($passed_days/$year_days), 2);
+                        } else {
+                            $current_bond->net_current_returns[$i] = round(0,4);
+                        }
+                       
                     }
                 }        
+               
             }
+
             $current_bond->net_total_interest = array_sum($current_bond->net_interests);
             $current_bond->net_current_total_interest = array_sum($current_bond->net_current_returns);
             $current_bond->purchase_date = $current_bond->purchase_date->format('d.m.Y');
             $current_bond->display_id = self::$display_id;
             self::$display_id++;
-            $this->COI_array[] = $current_bond;
+            $this->EDO_array[] = $current_bond;
             
         }
-
-        // foreach ($this->COI_bond_user_data as $COIbond) {
-        //     $current_bond = new COIObject;
-        //     $current_bond->calculated_percentage_rate[0] = $COIbond["period_fixed_rate"];
-        //     for ($i = 1; $i < 4; $i++) {
-        //         $current_bond->calculated_percentage_rate[$i] = $COIbond["margin"];
-        //     }
-        // }
     }
 
-
-    public function percentage_to_float($value) {
+   public function percentage_to_float($value) {
         return round(($value+100)/100, 4);
     }
-        
 
-}
+
+ }

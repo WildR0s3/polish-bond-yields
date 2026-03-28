@@ -1,18 +1,18 @@
 <?php
-/* Smarty version 5.4.5, created on 2025-12-09 21:10:03
+/* Smarty version 5.4.5, created on 2026-03-21 14:12:33
   from 'file:main.tpl' */
 
 /* @var \Smarty\Template $_smarty_tpl */
 if ($_smarty_tpl->getCompiled()->isFresh($_smarty_tpl, array (
   'version' => '5.4.5',
-  'unifunc' => 'content_6938821b063b74_37469165',
+  'unifunc' => 'content_69be9941b20213_65304524',
   'has_nocache_code' => false,
   'file_dependency' => 
   array (
     'f93e836f5e1cce88c86ac20e65b7e8569534366b' => 
     array (
       0 => 'main.tpl',
-      1 => 1765311001,
+      1 => 1774098732,
       2 => 'file',
     ),
   ),
@@ -20,7 +20,7 @@ if ($_smarty_tpl->getCompiled()->isFresh($_smarty_tpl, array (
   array (
   ),
 ))) {
-function content_6938821b063b74_37469165 (\Smarty\Template $_smarty_tpl) {
+function content_69be9941b20213_65304524 (\Smarty\Template $_smarty_tpl) {
 $_smarty_current_dir = 'C:\\xampp\\htdocs\\polish_bond_yields\\app\\views\\templates';
 $_smarty_tpl->getInheritance()->init($_smarty_tpl, false);
 ?>
@@ -83,13 +83,13 @@ logout">Logout</a></li>
 				</section>
 
             <?php 
-$_smarty_tpl->getInheritance()->instanceBlock($_smarty_tpl, 'Block_11063066856938821b05a584_21199076', 'main');
+$_smarty_tpl->getInheritance()->instanceBlock($_smarty_tpl, 'Block_92397631569be994196cb54_55267368', 'main');
 ?>
 
 
 
 			<?php 
-$_smarty_tpl->getInheritance()->instanceBlock($_smarty_tpl, 'Block_20353294806938821b05c6d3_84904710', 'messages');
+$_smarty_tpl->getInheritance()->instanceBlock($_smarty_tpl, 'Block_46199541069be9941a2cfe6_63173129', 'messages');
 ?>
 
 
@@ -165,6 +165,9 @@ $_smarty_tpl->getInheritance()->instanceBlock($_smarty_tpl, 'Block_2035329480693
 
 		<!-- Scripts -->
 			<?php echo '<script'; ?>
+ src="assets/js/ajax.js"><?php echo '</script'; ?>
+>
+			<?php echo '<script'; ?>
  src="assets/js/hide_unhide.js"><?php echo '</script'; ?>
 >
 			<?php echo '<script'; ?>
@@ -189,7 +192,7 @@ $_smarty_tpl->getInheritance()->instanceBlock($_smarty_tpl, 'Block_2035329480693
 	</body>
 </html><?php }
 /* {block 'main'} */
-class Block_11063066856938821b05a584_21199076 extends \Smarty\Runtime\Block
+class Block_92397631569be994196cb54_55267368 extends \Smarty\Runtime\Block
 {
 public function callBlock(\Smarty\Template $_smarty_tpl) {
 $_smarty_current_dir = 'C:\\xampp\\htdocs\\polish_bond_yields\\app\\views\\templates';
@@ -199,7 +202,7 @@ $_smarty_current_dir = 'C:\\xampp\\htdocs\\polish_bond_yields\\app\\views\\templ
 }
 /* {/block 'main'} */
 /* {block 'messages'} */
-class Block_20353294806938821b05c6d3_84904710 extends \Smarty\Runtime\Block
+class Block_46199541069be9941a2cfe6_63173129 extends \Smarty\Runtime\Block
 {
 public function callBlock(\Smarty\Template $_smarty_tpl) {
 $_smarty_current_dir = 'C:\\xampp\\htdocs\\polish_bond_yields\\app\\views\\templates';

@@ -17,6 +17,9 @@ Utils::addRoute('add_bond',                 'AddBondCtrl',              ['manage
 Utils::addRoute('add_inflation_reading',    'AddInflationReadingCtrl',  ['manager']);
 Utils::addRoute('add_reference_rate',       'AddReferenceRateCtrl',     ['manager']);
 Utils::addRoute('display_user_bonds',       'DisplayUserBondsCtrl',     ['user']);
+// Utils::addRoute('display_user_bonds',       'DisplayUserBondsCtrl',     ['user']);
 Utils::addRoute('edit_user_bonds',          'EditUserBondsCtrl',        ['user']);
+Utils::addRoute('make_edition',             'EditUserBondsCtrl',        ['user']);
+Utils::addRoute('make_deletion',            'EditUserBondsCtrl',        ['user']);
 Utils::addRoute('add_user_bonds',           'AddUserBondsCtrl',         ['user']);
 //Utils::addRoute('action_name', 'controller_class_name');

@@ -103,7 +103,7 @@ input, select, textarea {
 	}
 
 	.header-column {
-		padding: 12px 15px; /* Comfortable padding */
+		padding: 5px 15px; /* Comfortable padding */
 		text-align: left;
 		/* Optional: Add a subtle separator between header columns */
 		border-right: 1px solid rgba(255, 255, 255, 0.1);
@@ -125,7 +125,7 @@ input, select, textarea {
 	}
 
 	.row-cell {
-		padding: 10px 15px;
+		padding: 5px 15px; /*10px*/
 		text-align: left;
 		white-space: nowrap;
 		overflow: hidden;
@@ -226,7 +226,7 @@ input, select, textarea {
 	}
 
 	.sub-header-column, .sub-row-cell {
-		padding: 8px 10px;
+		padding: 4px 10px;
 		border-right: 1px solid #eee;
 	}
 	.sub-header-column:last-child, .sub-row-cell:last-child {
@@ -378,6 +378,34 @@ input, select, textarea {
 			}
 
 		}
+
+	.pagination-list {
+        display: flex;          /* To ustawia elementy w poziomie */
+        list-style: none;       /* Usuwa kropki */
+        padding: 0;
+        gap: 5px;               /* Odstępy między przyciskami */
+        justify-content: center; /* Wyśrodkowanie na stronie */
+    }
+
+    .pagination-list li a {
+        display: block;
+        padding: 8px 12px;
+        text-decoration: none;
+        color: #007bff;
+        border: 1px solid #dee2e6;
+        border-radius: 4px;
+        background-color: #fff;
+    }
+
+    .pagination-list li.active a {
+        background-color: #007bff;
+        color: white;
+        border-color: #007bff;
+    }
+
+    .pagination-list li a:hover:not(.active) {
+        background-color: #e9ecef;
+    }
 
 /* Row */
 

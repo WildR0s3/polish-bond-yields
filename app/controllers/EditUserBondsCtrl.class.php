@@ -25,35 +25,65 @@ class EditUserBondsCtrl {
 
 
     public function action_edit_user_bonds() {
+        
         $this->id_holding = $this->v->validateFromPost("id_holding", [
             'trim'              => true,
             'required'          => true,
             'int'               => true
         ]);
-        $this->id_holding;
+      
+        $this->retrieve_edited_bond();
+
+        $this->generateView();
+    }
+
+
+    public function action_make_edition() {
+
+        $this->id_holding = $this->v->validateFromPost("id_holding", [
+            'trim'              => true,
+            'required'          => true,
+            'int'               => true
+        ]);
       
         $this->retrieve_edited_bond();
         if ($this->validate()) {
             if ($this->update_user_bonds()) {
               App::getRouter()->redirectTo('display_user_bonds');
+            } else {
+                $this->generateView();
             }
         }
-        $this->generateView();
+    }
+    # TODO do deletion
+    public function action_make_deletion() {
+        $this->id_holding = $this->v->validateFromPost("id_holding", [
+            'trim'              => true,
+            'required'          => true,
+            'int'               => true
+        ]);
+        if ($this->delete_user_bonds()) {
+            App::getRouter()->redirectTo('display_user_bonds');
+        } else {
+            $this->generateView();
+        }
     }
 
     # TODO finish this probably split it into 2 seperate actions, display view and actually change view
     public function update_user_bonds() {
+        $original_purchase_date = new \DateTime($this->edited_bond["purchase_date"]);
+        $this->first_day_edited = $this->form->purchase_date->format('Y-m-01');
+        $this->first_day_original = $original_purchase_date->format('Y-m-01');
         $update_data = [];
-        if ($this->edited_bond["purchase_date"] != $this->form->purchase_date) {
-            $update_data['purchase_date'] = $this->form->purchase_date;
+        if ($original_purchase_date != $this->form->purchase_date) {
+            $update_data['purchase_date'] = $this->form->purchase_date->format('Y-m-d');
         }
         if ($this->edited_bond["value"] != $this->form->value) {
             $update_data['value'] = $this->form->value;
         }
-        if ($this->edited_bond["bond_type"] != $this->form->bond_type) {
-            $this->first_day = $this->form->purchase_date->format('Y-m-01');
+        if ($this->edited_bond["bond_type"] != $this->form->bond_type || $this->first_day_edited != $this->first_day_original) {
             $this->retrive_bond_id();
-            $update_data['bond_id_bond'] = $this->form->bond_type;
+            $update_data['bond_id_bond'] = $this->form->id_bond;
         }
         if (empty($update_data)) {
             return false;
@@ -61,19 +91,33 @@ class EditUserBondsCtrl {
 
         try {
             App::getDB()->update("holding",
-            [$update_data],
-            ["id_holding" =>  $this->edited_bond["id_holding"]]);
+            $update_data,
+            ["id_holding" =>  $this->id_holding]);
         } catch (PDOException $e) {
-              Utils::addErrorMessage('Wystąpił błąd podczas pobierania rekordów');
+              Utils::addErrorMessage('Wystąpił błąd podczas aktualizacji rekordow');
             if (App::getConf()->debug)
                 Utils::addErrorMessage($e->getMessage());
+            return false;
         }
+        App::getMessages()->addMessage(new Message("Holding obligacji zaktualizowany poprawnie", Message::INFO));
         return true;
-        App::getMessages()->addMessage(new Message("Hloding obligacji zaktualizowany poprawnie", Message::INFO));
-
      
     }
 
+
+    public function delete_user_bonds() {
+        try {
+            App::getDB()->delete("holding",
+            ["id_holding" =>  $this->id_holding]);
+        } catch (PDOException $e) {
+              Utils::addErrorMessage('Wystąpił błąd podczas usuwania recordu');
+            if (App::getConf()->debug)
+                Utils::addErrorMessage($e->getMessage());
+            return false;
+        }
+        App::getMessages()->addMessage(new Message("Holding obligacji zostal usuniety", Message::INFO));
+        return true;
+    }
 
 
 
@@ -111,7 +155,7 @@ class EditUserBondsCtrl {
                 [
                     "AND" => [
                         "bond_type" => $this->form->bond_type,
-                        "emission_date[=]" => $this->first_day
+                        "emission_date[=]" => $this->first_day_edited
                 ]
                 ]
         );

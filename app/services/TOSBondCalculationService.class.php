@@ -17,21 +17,27 @@ use app\models\TOSObject;
 class TOSBondCalculationService extends BondWrapper {
     public $TOS_bond_user_data;
     public $TOS_array;
+    public $TOS_count;
+    public $total_pages;
+    public $page;
 
     public function __construct() {
         $this->logged_user = SessionUtils::loadObject('logged_user', $keep = true);
         $this->TOS_array = array();
         $this->grouped_bonds = [];
+        $this->limit = 5;
     }
 
 
-    public function __invoke() {
-        $this->retrieve_TOS_bonds();
+    public function __invoke($page, $offset) {
+        $this->page = $page;
+        $this->check_total_records();
+        $this->retrieve_TOS_bonds($page, $offset);
         $this->calculate_interest_TOS();
         return $this;
     }
 
-    public function retrieve_TOS_bonds() {
+    public function retrieve_TOS_bonds($page, $offset) {
     
         try {
             $this->TOS_bond_user_data = App::getDB()->select("holding" , [
@@ -47,7 +53,9 @@ class TOSBondCalculationService extends BondWrapper {
                     "holding.value",
                    ], [
                     "holding.user_id_user"  => $this->logged_user->user_id,
-                    "bond.bond_type"        => "TOS"
+                    "bond.bond_type"        => "TOS",
+                    "LIMIT"                 => [$offset, $this->limit]
+
                    ]
              
         );
@@ -56,6 +64,26 @@ class TOSBondCalculationService extends BondWrapper {
             if (App::getConf()->debug)
                 Utils::addErrorMessage($e->getMessage());
         }
+    }
+
+
+    public function check_total_records() {
+        try {
+            $this->TOS_count = App::getDB()->count("holding" , [
+                   "[>]bond"                    => ["bond_id_bond"                                                   => "id_bond"], 
+                   ],  [
+                    "holding.id_holding"
+                   ], [
+                    "holding.user_id_user"  => $this->logged_user->user_id,
+                    "bond.bond_type"        => "TOS"
+                   ]     
+        );
+        } catch (PDOException $e) {
+            Utils::addErrorMessage('Wystąpił błąd podczas pobierania rekordów');
+            if (App::getConf()->debug)
+                Utils::addErrorMessage($e->getMessage());
+        }
+        $this->total_pages = ceil($this->TOS_count / $this->limit);
     }
 
     public function group_by_id() {
@@ -69,60 +97,63 @@ class TOSBondCalculationService extends BondWrapper {
         $this->group_by_id();
         $today = new \DateTime('now');
         $today->setTime(0, 0, 0);
-        foreach ($this->grouped_bonds as $bond_id => $this->readings_array) {
-            $current_bond = new TOSObject;
-            $current_bond->purchase_date = new  \DateTime($this->readings_array[0]['purchase_date']);
-            $current_bond->id_holding = $this->readings_array[0]['id_holding'];
-            $current_end_of_period = clone $current_bond->purchase_date;
-            $current_bond->value = $this->readings_array[0]['value'];
-            $current_bond->bond_type = $this->readings_array[0]['bond_type'];
+        foreach ($this->grouped_bonds as $bond_id => $readings_for_bond) {
+            foreach ($readings_for_bond as $reading) {
+                $current_bond = new TOSObject;
+                $current_bond->purchase_date = new  \DateTime($reading['purchase_date']);
+                $current_bond->id_holding = $reading['id_holding'];
+                $current_end_of_period = clone $current_bond->purchase_date;
+                $current_bond->value = $reading['value'];
+                $current_bond->bond_type = $reading['bond_type'];
 
-            // $this->calculate_percentage_rate($current_bond);
+                // $this->calculate_percentage_rate($current_bond);
 
-            for ($i = 0; $i < $current_bond->periods; $i++) {
-                $current_bond->calculated_percentage_rate[$i] = $this->percentage_to_float($this->readings_array[0]["period_fixed_rate"]);
-                $current_bond->gross_percentage_returns[$i] = $this->readings_array[0]["period_fixed_rate"];
+                for ($i = 0; $i < $current_bond->periods; $i++) {
+                    $current_bond->calculated_percentage_rate[$i] = $this->percentage_to_float($reading["period_fixed_rate"]);
+                    $current_bond->gross_percentage_returns[$i] = $reading["period_fixed_rate"];
 
-                # TODO logic below to be corrected
-                if ($i == 0) {
-                    $current_bond->gross_interests[$i] = ($current_bond->value * $current_bond->calculated_percentage_rate[$i]) - $current_bond->value;
+                    # TODO logic below to be corrected
+                    if ($i == 0) {
+                        $current_bond->gross_interests[$i] = ($current_bond->value * $current_bond->calculated_percentage_rate[$i]) - $current_bond->value;
 
-                } elseif ($i == 1) {
-                    $current_bond->gross_interests[$i] = (($current_bond->gross_interests[$i-1] + $current_bond->value) * $current_bond->calculated_percentage_rate[$i]) - $current_bond->value - $current_bond->gross_interests[$i-1];
-                } elseif ($i == 2) {
-                    $current_bond->gross_interests[$i] = (($current_bond->gross_interests[$i-2] + $current_bond->gross_interests[$i-1] + $current_bond->value) * $current_bond->calculated_percentage_rate[$i]) - $current_bond->value - $current_bond->gross_interests[$i-2] - $current_bond->gross_interests[$i-1];
-                }
-                $current_bond->net_interests[$i] = round($current_bond->gross_interests[$i] * 0.81, 2); # possibly change it to have it dunamically assigned form DB, if polish tax rate will change in the future
-                $current_bond->net_daily_period_interest[$i] =  round($current_bond->net_interests[$i] / 365, 4);
-
-                $current_end_of_period->modify('+1 year');
-                if ($today <= $current_bond->purchase_date) {
-                    $current_bond->net_current_returns[$i] = round(0,4);
-                } elseif ($today > $current_bond->purchase_date) {
-                      if ($today >= $current_end_of_period) {
-                        $current_bond->net_current_returns[$i] = $current_bond->net_interests[$i];
-                    } else {
-                        $begginig_of_current_period = clone $current_end_of_period;
-                        $begginig_of_current_period->modify('-1 year');
-                        if ($today >= $begginig_of_current_period) {
-                            $year_days = $begginig_of_current_period->diff($current_end_of_period)->days;
-                            $passed_days = $begginig_of_current_period->diff($today)->days;
-                            $current_bond->net_current_returns[$i] = round($current_bond->net_interests[$i] * ($passed_days/$year_days), 2);
-                        } else {
-                            $current_bond->net_current_returns[$i] = round(0,4);
-                        }
-                       
+                    } elseif ($i == 1) {
+                        $current_bond->gross_interests[$i] = (($current_bond->gross_interests[$i-1] + $current_bond->value) * $current_bond->calculated_percentage_rate[$i]) - $current_bond->value - $current_bond->gross_interests[$i-1];
+                    } elseif ($i == 2) {
+                        $current_bond->gross_interests[$i] = (($current_bond->gross_interests[$i-2] + $current_bond->gross_interests[$i-1] + $current_bond->value) * $current_bond->calculated_percentage_rate[$i]) - $current_bond->value - $current_bond->gross_interests[$i-2] - $current_bond->gross_interests[$i-1];
                     }
-                }        
-               
+                    $current_bond->net_interests[$i] = round($current_bond->gross_interests[$i] * 0.81, 2); # possibly change it to have it dunamically assigned form DB, if polish tax rate will change in the future
+                    $current_bond->net_daily_period_interest[$i] =  round($current_bond->net_interests[$i] / 365, 4);
+
+                    $current_end_of_period->modify('+1 year');
+                    if ($today <= $current_bond->purchase_date) {
+                        $current_bond->net_current_returns[$i] = round(0,4);
+                    } elseif ($today > $current_bond->purchase_date) {
+                        if ($today >= $current_end_of_period) {
+                            $current_bond->net_current_returns[$i] = $current_bond->net_interests[$i];
+                        } else {
+                            $begginig_of_current_period = clone $current_end_of_period;
+                            $begginig_of_current_period->modify('-1 year');
+                            if ($today >= $begginig_of_current_period) {
+                                $year_days = $begginig_of_current_period->diff($current_end_of_period)->days;
+                                $passed_days = $begginig_of_current_period->diff($today)->days;
+                                $current_bond->net_current_returns[$i] = round($current_bond->net_interests[$i] * ($passed_days/$year_days), 2);
+                            } else {
+                                $current_bond->net_current_returns[$i] = round(0,4);
+                            }
+                        
+                        }
+                    }        
+                
+                }
+
+                $current_bond->net_total_interest = array_sum($current_bond->net_interests);
+                $current_bond->net_current_total_interest = array_sum($current_bond->net_current_returns);
+                $current_bond->purchase_date = $current_bond->purchase_date->format('d.m.Y');
+                $current_bond->display_id = self::$display_id;
+                self::$display_id++;
+                $this->TOS_array[] = $current_bond;
             }
 
-            $current_bond->net_total_interest = array_sum($current_bond->net_interests);
-            $current_bond->net_current_total_interest = array_sum($current_bond->net_current_returns);
-            $current_bond->purchase_date = $current_bond->purchase_date->format('d.m.Y');
-            $current_bond->display_id = self::$display_id;
-            self::$display_id++;
-            $this->TOS_array[] = $current_bond;
             
         }
     }
